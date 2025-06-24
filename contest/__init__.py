@@ -9,24 +9,53 @@ Your app description
 class C(BaseConstants):
     NAME_IN_URL = 'contest'
     PLAYERS_PER_GROUP = None
-    NUM_ROUNDS = 1
+    NUM_ROUNDS = 2
+    ENDOWMENT = Currency(10)
+    COST_PER_TICKET = Currency(0.50)
+    PRIZE = Currency(8)
 
 
 class Subsession(BaseSubsession):
-    pass
+    is_paid = models.BooleanField()
+
+    def setup_round(self):
+        self.is_paid = True
+        for group in self.get_groups():
+            group.setup_round()
 
 
 class Group(BaseGroup):
-    pass
+    prize = models.CurrencyField()
+
+    def setup_round(self):
+        self.prize = C.PRIZE
+        for player in self.get_players():
+            player.setup_round()
 
 
 class Player(BasePlayer):
-    pass
+    endowment = models.CurrencyField()
+    cost_per_ticket = models.CurrencyField()
+    tickets_purchased = models.IntegerField()
 
+    def setup_round(self):
+        self.endowment = C.ENDOWMENT
+        self.cost_per_ticket = C.COST_PER_TICKET
+
+    @property
+    def coplayer(self):
+        return self.group.get_player_by_id(3 - self.id_in_group)
+
+def creating_session(subsession):
+    subsession.setup_round()
 
 # PAGES
 class SetupRound(WaitPage):
-    pass
+    wait_for_all_groups = True
+
+    @staticmethod
+    def after_all_players_arrive(subsession):
+        subsession.setup_round()
 
 
 class Intro(Page):
@@ -34,7 +63,8 @@ class Intro(Page):
 
 
 class Decision(Page):
-    pass
+    form_model = "player"
+    form_fields = ["tickets_purchased"]
 
 
 class DecisionWaitPage(WaitPage):
@@ -42,19 +72,23 @@ class DecisionWaitPage(WaitPage):
 
 
 class Results(Page):
-    pass
+    @staticmethod
+    def vars_for_template(player):
+        return {
+            "coplayer_purchases": player.group.get_player_by_id(3 - player.id_in_group).tickets_purchased,
+        }
 
 
 class EndBlock(Page):
     pass
 
 
-page_sequence = {
+page_sequence = [
     SetupRound,
     Intro,
     Decision,
     DecisionWaitPage,
     Results,
-    EndBlock
-}
+    EndBlock,
+]
 
