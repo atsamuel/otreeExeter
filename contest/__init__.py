@@ -17,9 +17,11 @@ class C(BaseConstants):
 
 class Subsession(BaseSubsession):
     is_paid = models.BooleanField()
+    csf = models.StringField(choices=["share", "allpay"])
 
     def setup_round(self):
         self.is_paid = self.round_number % 2 == 1
+        self.csf = self.session.config["contest_csf"]
         for group in self.get_groups():
             group.setup_round()
 
@@ -36,13 +38,30 @@ class Group(BaseGroup):
         for player in self.get_players():
             player.setup_round()
 
-    def compute_outcome(self):
+    def compute_outcome_share(self):
         total = sum(player.tickets_purchased for player in self.get_players())
         for player in self.get_players():
             try:
                 player.prize_won = player.tickets_purchased / total
             except ZeroDivisionError:
                 player.prize_won = 1 / len(self.get_players())
+
+    def compute_outcome_allpay(self):
+        max_tickets = max(player.tickets_purchased for player in self.get_players())
+        num_tied = len([player for player in self.get_players()
+                        if player.tickets_purchased == max_tickets])
+        for player in self.get_players():
+            if player.tickets_purchased == max_tickets:
+                player.prize_won = 1 / num_tied
+            else:
+                player.prize_won = 0
+
+    def compute_outcome(self):
+        if self.subsession.csf == "share":
+            self.compute_outcome_share()
+        elif self.subsession.csf == "allpay":
+            self.compute_outcome_allpay()
+        for player in self.get_players():
             player.earnings = (
                 player.endowment -
                 player.tickets_purchased * player.cost_per_ticket +
@@ -60,7 +79,7 @@ class Player(BasePlayer):
     earnings = models.CurrencyField()
 
     def setup_round(self):
-        self.endowment = C.ENDOWMENT
+        self.endowment = self.session.config.get("contest_endowment", C.ENDOWMENT)
         self.cost_per_ticket = C.COST_PER_TICKET
 
     @property
@@ -71,9 +90,9 @@ class Player(BasePlayer):
     def max_tickets_affordable(self):
         return int(self.endowment / self.cost_per_ticket)
 
+    def in_paid_rounds(self):
+        return [rd for rd in self.in_all_rounds() if rd.subsession.is_paid]
 
-def creating_session(subsession):
-    subsession.setup_round()
 
 # PAGES
 class SetupRound(WaitPage):
@@ -85,7 +104,9 @@ class SetupRound(WaitPage):
 
 
 class Intro(Page):
-    pass
+    @staticmethod
+    def is_displayed(player):
+        return player.round_number == 1
 
 
 class Decision(Page):
@@ -97,10 +118,10 @@ class Decision(Page):
         if values["tickets_purchased"] < 0:
             return "You cannot buy a negative number of tickets."
         if values["tickets_purchased"] > player.max_tickets_affordable:
-            return  (
+            return (
                 f"Buying {values['tickets_purchased']} tickets would cost "
-                f"{values['tickets_purchased'] * player.cost_per_ticket}, "
-                f"which is more than your endowment of {[player.endowment]}."
+                f"{values['tickets_purchased'] * player.cost_per_ticket} "
+                f"which is more than your endowment of {player.endowment}."
             )
         return None
 
@@ -114,15 +135,13 @@ class DecisionWaitPage(WaitPage):
 
 
 class Results(Page):
-    @staticmethod
-    def vars_for_template(player):
-        return {
-            "coplayer_purchases": player.group.get_player_by_id(3 - player.id_in_group).tickets_purchased,
-        }
+    pass
 
 
 class EndBlock(Page):
-    pass
+    @staticmethod
+    def is_displayed(player):
+        return player.round_number == C.NUM_ROUNDS
 
 
 page_sequence = [
