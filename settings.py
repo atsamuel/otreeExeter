@@ -39,6 +39,7 @@ SESSION_CONFIGS = [
         ],
         num_demo_participants=2,
         contest_csf="lottery",
+        contest_group_randomly=True,
     ),
 ]
 

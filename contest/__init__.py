@@ -3,9 +3,7 @@ import random
 from otree.api import *
 
 
-doc = """
-Your app description
-"""
+doc = "This is a proof with otree"
 
 
 class C(BaseConstants):
@@ -26,6 +24,8 @@ class Subsession(BaseSubsession):
         if self.round_number == 1:
             self.setup_paid_rounds()
         self.csf = self.session.config["contest_csf"]
+        if self.session.config.get("contest_group_randomly", False):
+            self.group_randomly()
         for group in self.get_groups():
             group.setup_round()
 
