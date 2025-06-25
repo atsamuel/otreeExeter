@@ -41,6 +41,13 @@ SESSION_CONFIGS = [
         contest_csf="lottery",
         contest_group_randomly=True,
     ),
+    dict(
+        name="encryption",
+        app_sequence=[
+            "encryption"
+        ],
+        num_demo_participants=2,
+    ),
 ]
 
 # if you set a property in SESSION_CONFIG_DEFAULTS, it will be inherited by all configs
