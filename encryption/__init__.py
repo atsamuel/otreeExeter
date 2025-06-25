@@ -22,7 +22,7 @@ class Subsession(BaseSubsession):
     def setup_round(self):
         self.payment_per_correct = Currency(0.10)
         self.lookup_table = string.ascii_uppercase
-        self.word = "AB"
+        self.word = "ABABA"
 
     @property
     def lookup_dict(self):
@@ -43,17 +43,25 @@ class Group(BaseGroup):
 class Player(BasePlayer):
     response_1 = models.IntegerField()
     response_2 = models.IntegerField()
+    response_3 = models.IntegerField()
+    response_4 = models.IntegerField()
+    response_5 = models.IntegerField()
     is_correct = models.BooleanField()
 
+    @property
+    def response_fields(self):
+        return ["response_1", "response_2", "response_3", "response_4", "response_5"]
 
     @property
     def response(self):
-        return [self.response_1, self.response_2]
+        return [self.response_1, self.response_2, self.response_3,
+                self.response_4, self.response_5]
 
     def check_response(self):
         self.is_correct = self.response == self.subsession.correct_response
         if self.is_correct:
             self.payoff = self.subsession.payment_per_correct
+
 
 def creating_session(subsession):
     subsession.setup_round()
@@ -68,7 +76,10 @@ class Intro(Page):
 
 class Decision(Page):
     form_model = "player"
-    form_fields = ["response_1", "response_2"]
+
+    @staticmethod
+    def get_form_fields(player):
+        return player.response_fields
 
     @staticmethod
     def before_next_page(player, timeout_happened):
