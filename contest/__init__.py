@@ -93,7 +93,7 @@ class Decision(Page):
     def error_message(player, values):
         if values["tickets_purchased"] < 0:
             return "You cannot buy a negative number of tickets."
-        if values["tickets_purchased"] > int(player.endowment / player.cost_per_ticket):
+        if values["tickets_purchased"] > player.max_tickets_affordable:
             return  (
                 f"Buying {values['tickets_purchased']} tickets would cost "
                 f"{values['tickets_purchased'] * player.cost_per_ticket}, "
