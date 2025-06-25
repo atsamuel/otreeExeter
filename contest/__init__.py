@@ -1,3 +1,5 @@
+import random
+
 from otree.api import *
 
 
@@ -17,7 +19,7 @@ class C(BaseConstants):
 
 class Subsession(BaseSubsession):
     is_paid = models.BooleanField()
-    csf = models.StringField(choices=["share", "allpay"])
+    csf = models.StringField(choices=["share", "allpay", "lottery"])
 
     def setup_round(self):
         self.is_paid = self.round_number % 2 == 1
@@ -37,6 +39,15 @@ class Group(BaseGroup):
         self.prize = C.PRIZE
         for player in self.get_players():
             player.setup_round()
+
+    def compute_outcome_lottery(self):
+        try:
+            winner = random.choices(self.get_players(), k=1,
+                                    weights=[p.tickets_purchased for p in self.get_players()])[0]
+        except ValueError:
+            winner = random.choice(self.get_players())
+        for player in self.get_players():
+            player.prize_won = 1 if player == winner else 0
 
     def compute_outcome_share(self):
         total = sum(player.tickets_purchased for player in self.get_players())
@@ -61,6 +72,8 @@ class Group(BaseGroup):
             self.compute_outcome_share()
         elif self.subsession.csf == "allpay":
             self.compute_outcome_allpay()
+        elif self.subsession.csf == "lottery":
+            self.compute_outcome_lottery()
         for player in self.get_players():
             player.earnings = (
                 player.endowment -
@@ -152,4 +165,3 @@ page_sequence = [
     Results,
     EndBlock,
 ]
-
